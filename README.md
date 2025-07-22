@@ -9,4 +9,6 @@ This app takes a youtube link to retrieve the data and uses that as an context t
 * Pytube
 * transformers
 
+![Sample User Interface](assets/images/Sample_UI.png)
+
 
