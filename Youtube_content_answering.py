@@ -12,6 +12,7 @@ from pytube import YouTube
 from speechbrain.inference import EncoderDecoderASR
 import streamlit as st
 
+import re
 import json
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
@@ -115,6 +116,26 @@ class LlamaContextQA:
             print(f"   Question: {entry['question']}")
             print(f"   Answer: {entry['answer']}")
 
+def to_sentence_case(text):
+    # Convert whole text to lowercase first
+    text = text.lower()
+
+    # Capitalize first character of entire text
+    text = text.capitalize()
+
+    # Capitalize first letter after full stops, question marks or exclamation marks
+    def capitalize_match(match):
+        return match.group(1) + " " + match.group(2).upper()
+    
+    # Pattern explanation:
+    # ([.?!]) - look for a period, question mark, or exclamation mark
+    # \s* - any spaces after punctuation
+    # (\w) - first alphanumeric char of next sentence
+    pattern = r'([.?!])\s*(\w)'
+    text = re.sub(pattern, capitalize_match, text)
+
+    return text
+
 
 # DISPLAY Q&A HISTORY
 def display_history(qa, height=0):
@@ -178,14 +199,36 @@ with st.sidebar:
 
 # Set or update context
 with st.expander("Set or Update Context"):
-    new_context = st.text_area("Enter context (you can update this at any time):", height=150)
+    col1, col2 = st.columns([3, 1])  # Adjust ratio for width
+
+    with col1:
+        input_link = st.text_input("Enter link of YouTube video or audio file (optional):")
+
+    with col2:
+        if st.button("Extract Context"):
+            st.session_state['text_area_content'] = input_link
+    
+    if 'text_area_content' not in st.session_state:
+        st.session_state['text_area_content'] = ""
+
+    new_context = st.text_area("Enter context (you can update this at any time):", value=st.session_state.get('text_area_content', ''), height=150)
     append = st.checkbox("Append to existing context", value=False)
     if st.button("Apply Context"):
         if new_context.strip():
             qa.set_context(new_context, append=append)
             st.success("Context updated.")
+            st.session_state['text_area_content'] = ""
         else:
             st.warning("Please enter some context.")
+
+# Display current context
+st.subheader("Current Context")
+if qa.context:
+    # formatted_text = to_sentence_case(qa.context)
+    st.markdown(f"<div style='max-height: 150px; overflow-y: auto; text-align: justify;'>{qa.context}</div>", unsafe_allow_html=True)
+else:
+    st.info("No context set yet. Please enter some context above.")
+
 
 # Ask a question
 st.subheader("Ask a Question")
